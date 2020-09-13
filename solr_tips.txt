@@ -1,0 +1,73 @@
+
+# Run solr in docker
+docker run solr:latest
+docker run -p 8983:8983 solr:latest
+# then open http://localhost:8983/ in browser we'll see solr 
+# back to terminal contrl + c will disconnect 
+# http://localhost:8983/solr/#/ cannot be reached now if refresh the browser
+
+# Show hash
+docker run -d -p 8983:8983 solr:latest
+# show images
+docker ps
+
+# stop it using container id from docker ps
+docker stop fa9e050884f3
+
+# remove 
+docker rm fa9e050884f3
+
+# name solr 
+docker run --name single-solr -d -p 8983:8983 -t solr:6.2.1
+docker ps
+docker stop single-solr
+docker rm single-solr
+
+# use Alpine
+docker run --name single-solr -d -p 8983:8983 -t solr:6.2-alpine
+docker ps
+docker stop single-solr
+
+# swap set to 0 
+docker run -it --name lr_solr_swap -p 8983:8983 -d -m 2G --memory-swappiness=0 solr:6.2.1
+docker ps
+docker stop lr_solr_swap
+
+# set cpus
+docker run -it --cpuset-cpus="0,1" --name lr_solr_cpu -p 8983:8983 -d solr:6.2.1
+
+docker stop lr_solr_cpu
+clear
+
+# start a container
+docker run --name single_solr -d -p 8983:8983 -t solr:6.2.1
+
+docker exec -it --user solr single_solr bin/solr create_core -c gettingstarted
+
+#### upload config to zookeeper - zk -upconfig ; give a name to zookeeper host 
+docker exec -it --user solr single_solr bin/solr zk -upconfig -n example -z localhost:9983 -d server /solr/configsets/data_driven_schema_configs/conf
+###ERROR: java.util.concurrent.TimeoutException: Could not connect to ZooKeeper localhost:9983 within 30000 ms
+curl 'localhost:8983/sorl/admin/collections?action-CREATE&name=lr&numShards=1&replicationFactor=1&maxShardsPerNode=1&collection.configName=example'
+
+# second run, docker container was run perfectly fine, I did specify a different port because
+#   docker containers don't actually have the network inside the container, docker creates a network for a container itself.
+#   -z means pointing my solr to a different zookeeper, so I wanted them to connect to the same one 
+#   that was exposed by the container. you remember I expose a 9983 port on the localhost.
+#   everything should be running smoothly.
+docker run --name lr_solr_two -d -p 6983:6983 -t solr:6.2.1 -z localhost:9983
+# will be errors
+docker stop lr_solr_two
+docker rm lr_solr_two
+
+# link containers so they'll see each other 
+# for other containers to see my intial container that contains a zookeeper
+# link them together to the first container to create a cloud cluster
+# use the run code just above 
+docker run --name lr_solr_two -d --link lr_solr_one -p 6983:6983 -t solr:6.2.1 -z localhost:9983
+
+# standard home directory for solr
+docker run --name lr_solr_disk -d -p 8983:8983 -t -v /tmp/solr:/opt/solr/server/solr solr:6.2.1
+docker logs lr_solr_disk  //home directory /opt/solr/server/solr must contain a solr.xml file!
+
+docker stop lr_solr_disk
+docker rm lr_solr_disk
